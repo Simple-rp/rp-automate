@@ -24,7 +24,7 @@ import win32api
 
 INTERVAL_SECONDS = int(os.getenv("FIVEM_BOT_INTERVAL", "155")) #SECONDS BETWEEN EACH ACTION CYCLE
 WINDOW_TITLE_PATTERN = r".*FiveM.*"
-TEMPLATE_PATH = Path("items/ble.png") #ITEM ON POCKET
+TEMPLATE_PATH = Path("items/pain.png") #ITEM ON POCKET (pain)
 MATCH_THRESHOLD = 0.75
 DEBUG = False
 
@@ -148,15 +148,17 @@ def find_and_click_item(window: BaseWrapper) -> None:
 
 
 def capture_window_image(hwnd: int) -> Tuple[np.ndarray, Tuple[int, int]]:
-    """Grab a screenshot of the left half of the window; returns (image BGR, (left, top))."""
+    """Grab a screenshot of the right half of the window; returns (image BGR, (left, top))."""
     left, top, right, bottom = win32gui.GetWindowRect(hwnd)
     full_width, height = right - left, bottom - top
-    width = full_width // 2  # only left half
+    half_width = full_width // 2
+    # right half starts at left + half_width
+    cap_left = left + half_width
     with mss.mss() as sct:
-        monitor = {"left": left, "top": top, "width": width, "height": height}
+        monitor = {"left": cap_left, "top": top, "width": half_width, "height": height}
         img = np.array(sct.grab(monitor))
     bgr = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-    return bgr, (left, top)
+    return bgr, (cap_left, top)
 
 
 def match_template(source: np.ndarray, template: np.ndarray, threshold: float) -> Optional[Tuple[int, int]]:

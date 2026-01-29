@@ -1,17 +1,30 @@
-# FiveM Focus Bot
+# FiveM Focus Bots
 
-Bot Windows minimal pour FiveM :
-- met la fenêtre FiveM devant,
-- envoie X → G → Tab → clic sur l’image `items/ble.png` (moitié gauche de la fenêtre) → Tab → E,
-- boucle toutes les `FIVEM_BOT_INTERVAL` secondes (120s par défaut).
+Deux scripts rapides :
+
+* `recolte-ble.py` : X → G → Tab → clic sur `items/ble.png` (moitié gauche) → Tab → E, en boucle toutes les **120 s par défaut**.
+* `vente-pain.py` : séquence similaire, mais clique sur `items/pain.png` sur la **moitié droite**.
 
 ## Démarrage rapide
+
 ```powershell
-cd e:\Workspaces\fivem-bot
-python -m venv .venv
-.venv\Scripts\activate
 pip install -r requirements.txt
-python fivem_focus_bot.py
+python recolte-ble.py   # ou python vente-pain.py
 ```
 
-Conseils : lance le bot au même niveau d’admin que FiveM ; remplace `items/ble.png` si besoin ; ajuste `FIVEM_BOT_INTERVAL` si tu veux plus/moins souvent.
+## Conseils
+
+* Remplace les images si nécessaire ;
+* Ajuste `FIVEM_BOT_INTERVAL` pour la cadence.
+
+**Exemple :**
+Pour la vente, mets l’intervalle à **150 s** et **50** pour le nombre d’items à transférer.
+
+## Mises à jour possibles
+
+* Fusionner les deux fichiers en un seul ;
+* Extraire les fonctions communes des deux fichiers afin de garder des fichiers plus petits et plus propres.
+
+## Serveur FiveM compatible
+
+Diamond City
