@@ -22,9 +22,9 @@ import ctypes
 import win32api
 
 
-INTERVAL_SECONDS = int(os.getenv("FIVEM_BOT_INTERVAL", "20"))
+INTERVAL_SECONDS = int(os.getenv("FIVEM_BOT_INTERVAL", "20")) #SECONDS BETWEEN EACH ACTION CYCLE
 WINDOW_TITLE_PATTERN = r".*FiveM.*"
-TEMPLATE_PATH = Path("items/ble.png")
+TEMPLATE_PATH = Path("items/ble.png") #ITEM ON POCKET
 MATCH_THRESHOLD = 0.75
 DEBUG = False
 
