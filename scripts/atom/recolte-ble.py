@@ -21,10 +21,10 @@ import win32gui
 import ctypes
 import win32api
 
-FAIL_INTERVAL_SECONDS = 10  #SECONDS BETWEEN EACH ACTION CYCLE ON FAILURE
+
 INTERVAL_SECONDS = int(os.getenv("FIVEM_BOT_INTERVAL", "155")) #SECONDS BETWEEN EACH ACTION CYCLE
 WINDOW_TITLE_PATTERN = r".*FiveM.*"
-TEMPLATE_PATH = Path("items/pistache.png") #ITEM ON POCKET
+TEMPLATE_PATH = Path("assets/items/ble.png") #ITEM ON POCKET
 MATCH_THRESHOLD = 0.75
 DEBUG = False
 OPEN_TRUNK = True  # Si le coffre est ouvert pas besoin de cliquer G
@@ -60,29 +60,26 @@ def find_fivem_window() -> Optional[BaseWrapper]:
         return None
 
 
-def work(window: BaseWrapper) -> bool:
-    """Focus window, send X then G, Tab, click item, then E. Returns True if the item was found and clicked."""
-    if not focus_fivem_window(window):
-        return False
-
-    send_x_key()
-    time.sleep(0.2)
-    if not OPEN_TRUNK:
-        send_g_key()
+def work(window: BaseWrapper) -> None:
+    """Focus window, send X then G, Tab, click item, then E."""
+    if focus_fivem_window(window):
+        send_x_key()
+        time.sleep(0.2)
+        if not OPEN_TRUNK:
+            send_g_key()
+            time.sleep(0.5)
+        send_tab_key()
+        time.sleep(0.75)
+        # Find item
+        find_and_click_item(window)
+        # Close trunk & lock vehicle
+        time.sleep(0.75)
+        send_tab_key()
         time.sleep(0.5)
-    send_tab_key()
-    time.sleep(0.75)
-    # Find item
-    item_found = find_and_click_item(window)
-    # Close trunk & lock vehicle
-    time.sleep(0.75)
-    send_tab_key()
-    time.sleep(0.5)
-    send_e_key()
-    if not OPEN_TRUNK:
-        time.sleep(1)
-        send_g_key()
-    return item_found
+        send_e_key()
+        if not OPEN_TRUNK:
+            time.sleep(1)
+            send_g_key()
 
 
 def focus_fivem_window(window: BaseWrapper) -> bool:
@@ -136,24 +133,22 @@ def send_e_key() -> None:
         print(f"[{timestamp()}] Failed to send 'E': {exc!r}")
 
 
-def find_and_click_item(window: BaseWrapper) -> bool:
-    """Capture the window, locate the template, move mouse to it and click. Returns True on success."""
+def find_and_click_item(window: BaseWrapper) -> None:
+    """Capture the window, locate the template, move mouse to it and click."""
     if TEMPLATE_IMAGE is None:
         print(f"[{timestamp()}] Template image not loaded; skipping detection.")
-        return False
+        return
     try:
         snap, origin = capture_window_image(window.handle)
         match = match_template(snap, TEMPLATE_IMAGE, MATCH_THRESHOLD)
         if match is None:
             print(f"[{timestamp()}] Item not found on screen.")
-            return False
+            return
         target = (origin[0] + match[0], origin[1] + match[1])
         move_mouse_and_click(target)
         print(f"[{timestamp()}] Clicked item at {target}.")
-        return True
     except Exception as exc:
         print(f"[{timestamp()}] Detection failed: {exc!r}")
-        return False
 
 
 def capture_window_image(hwnd: int) -> Tuple[np.ndarray, Tuple[int, int]]:
@@ -214,29 +209,19 @@ def main() -> None:
         f"Looking for window title matching: '{WINDOW_TITLE_PATTERN}'."
     )
     i = 0
-    fail_count = 0
     while True:
         window = find_fivem_window()
-        iteration_success = False
         if DEBUG and window:
             print(f"[{timestamp()}] Debug: window found: {window is not None}")
-            iteration_success = find_and_click_item(window)
+            
+            find_and_click_item(window)
         elif window:
             print(f"[{timestamp()}] Iteration {i} starting....")
-            iteration_success = work(window)
+            work(window)
             i += 1
         else:
             print(f"[{timestamp()}] FiveM window not found.")
-
-        if iteration_success:
-            fail_count = 0
-        else:
-            fail_count += 1
-            print(f"[{timestamp()}] Failure streak: {fail_count}.")
-            if fail_count >= 5:
-                print(f"[{timestamp()}] Reached 5 consecutive failures (window missing or item not found). Stopping bot.")
-                break
-        time.sleep(FAIL_INTERVAL_SECONDS if not iteration_success else INTERVAL_SECONDS)
+        time.sleep(INTERVAL_SECONDS)
 
 
 if __name__ == "__main__":
