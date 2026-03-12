@@ -1,30 +1,53 @@
-# FiveM Focus Bots
+﻿# FiveM Focus Bots
 
-Deux scripts rapides :
+Scripts simples pour automatiser des actions repetitives dans FiveM.
+Compatible avec le serveur: **Diamond City**.
 
-* `recolte-ble.py` : X → G → Tab → clic sur `items/ble.png` (moitié gauche) → Tab → E, en boucle toutes les **120 s par défaut**.
-* `vente-pain.py` : séquence similaire, mais clique sur `items/pain.png` sur la **moitié droite**.
+## 1) Ce qu'il faut avant
 
-## Démarrage rapide
+- Windows
+- FiveM installe et fonctionnel
+- Python 3 installe
+
+Si Python n'est pas installe: https://www.python.org/downloads/
+
+## 2) Installation (a faire une seule fois)
+
+Ouvre un terminal dans ce dossier, puis lance:
 
 ```powershell
 pip install -r requirements.txt
-python recolte-ble.py   # ou python vente-pain.py
 ```
 
-## Conseils
+## 3) Utilisation (au quotidien)
 
-* Remplace les images si nécessaire ;
-* Ajuste `FIVEM_BOT_INTERVAL` pour la cadence.
+1. Lance FiveM et place ton personnage au bon endroit.
+2. Double-clique sur `run.bat`.
+3. Choisis le script dans la liste (tape le numero).
+4. Pour arreter un script: `Ctrl + C`.
 
-**Exemple :**
-Pour la vente, mets l’intervalle à **150 s** et **50** pour le nombre d’items à transférer.
+## Scripts disponibles
 
-## Mises à jour possibles
+- `scripts/diamond/atom/recolte-ble.py`
+- `scripts/diamond/atom/vente-pain.py`
+- `scripts/diamond/ferme-cayo/recolte-pistache.py`
+- `scripts/diamond/ferme-cayo/vente-pistache.py`
+- `scripts/diamond/ferme-cayo/recolte-menth.py`
+- `scripts/diamond/ferme-cayo/recolte-pierre.py`
 
-* Fusionner les deux fichiers en un seul ;
-* Extraire les fonctions communes des deux fichiers afin de garder des fichiers plus petits et plus propres.
+## Changer la vitesse (optionnel)
 
-## Serveur FiveM compatible
+Par defaut, les scripts tournent toutes les **155 secondes**.
 
-Diamond City
+Pour mettre 150 secondes (PowerShell):
+
+```powershell
+$env:FIVEM_BOT_INTERVAL=150
+python cli.py
+```
+
+## En cas de probleme
+
+- Ferme et relance `run.bat`.
+- Verifie que FiveM est ouvert et visible a l'ecran.
+- Si une image n'est pas reconnue, remplace-la dans `assets/items/`.
