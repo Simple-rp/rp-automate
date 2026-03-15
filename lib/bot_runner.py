@@ -2,17 +2,26 @@
 
 from __future__ import annotations
 
+import audioop
+import hashlib
+import os
 import random
+import tempfile
 import time
+import wave
 from datetime import datetime
+from pathlib import Path
 from typing import Callable, Optional
-
-from pywinauto.base_wrapper import BaseWrapper
 
 from lib.fivem_window import find_fivem_window
 
 Logger = Callable[[str], None]
-WindowAction = Callable[[BaseWrapper, Logger], bool]
+WindowAction = Callable[[object, Logger], bool]
+
+try:
+    import winsound
+except ImportError:  # pragma: no cover - Windows only
+    winsound = None
 
 
 def timestamp() -> str:
@@ -24,6 +33,103 @@ def build_logger() -> Logger:
         print(f"[{timestamp()}] {message}")
 
     return log
+
+
+def _sound_enabled() -> bool:
+    value = os.getenv("FIVEM_BOT_ITERATION_SOUND", "1").strip().lower()
+    return value not in {"0", "false", "no", "off"}
+
+
+def _resolve_sound() -> tuple[str, str | None]:
+    value = os.getenv("FIVEM_BOT_SOUND", "").strip()
+    if not value:
+        default_path = Path(__file__).resolve().parents[1] / "assets/sound/beep.wav"
+        if default_path.exists():
+            return ("file", str(default_path))
+        return ("beep", None)
+
+    lower = value.lower()
+    alias_map = {
+        "notification": "SystemNotification",
+        "asterisk": "SystemAsterisk",
+        "exclamation": "SystemExclamation",
+        "hand": "SystemHand",
+        "question": "SystemQuestion",
+        "exit": "SystemExit",
+        "default": "SystemDefault",
+    }
+    if lower in {"beep", "tone"}:
+        return ("beep", None)
+    if lower in alias_map:
+        return ("alias", alias_map[lower])
+    if os.path.exists(value):
+        return ("file", value)
+    return ("alias", value)
+
+
+def _sound_volume() -> float:
+    value = os.getenv("FIVEM_BOT_SOUND_VOLUME", "").strip()
+    if not value:
+        return 0.35
+    try:
+        volume = float(value)
+    except ValueError:
+        return 0.35
+    return max(0.0, min(1.0, volume))
+
+
+def _prepare_sound_file(sound_path: str, volume: float) -> str | None:
+    if volume >= 0.99:
+        return sound_path
+    if not sound_path.lower().endswith(".wav"):
+        return sound_path
+
+    try:
+        mtime = os.path.getmtime(sound_path)
+        cache_key = f"{sound_path}:{mtime}:{volume:.3f}".encode("utf-8")
+        cache_name = hashlib.md5(cache_key).hexdigest()
+        cache_dir = Path(tempfile.gettempdir()) / "fivem_bot_sounds"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        output_path = cache_dir / f"{Path(sound_path).stem}_{cache_name}.wav"
+        if output_path.exists():
+            return str(output_path)
+
+        with wave.open(sound_path, "rb") as reader:
+            params = reader.getparams()
+            sample_width = reader.getsampwidth()
+            with wave.open(str(output_path), "wb") as writer:
+                writer.setparams(params)
+                while True:
+                    frames = reader.readframes(4096)
+                    if not frames:
+                        break
+                    scaled = audioop.mul(frames, sample_width, volume)
+                    writer.writeframes(scaled)
+        return str(output_path)
+    except Exception:
+        return sound_path
+
+
+def _play_iteration_sound() -> None:
+    if winsound is None or not _sound_enabled():
+        return
+    kind, sound = _resolve_sound()
+    try:
+        if kind == "file" and sound:
+            volume = _sound_volume()
+            if volume <= 0.0:
+                return
+            sound_path = _prepare_sound_file(sound, volume)
+            if not sound_path:
+                return
+            winsound.PlaySound(sound_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+            return
+        if kind == "alias" and sound:
+            winsound.PlaySound(sound, winsound.SND_ALIAS | winsound.SND_ASYNC)
+            return
+        winsound.Beep(440, 25)
+    except Exception:
+        pass
 
 
 def run_bot(
@@ -57,6 +163,7 @@ def run_bot(
             log(f"Debug: window found: {window is not None}")
             iteration_success = active_debug_action(window, log)
         elif window:
+            _play_iteration_sound()
             log(f"Iteration {iteration} starting....")
             iteration_success = action(window, log)
             iteration += 1

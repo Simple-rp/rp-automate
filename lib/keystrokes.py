@@ -48,6 +48,10 @@ def press_g(logger: Logger = None) -> bool:
     return _press_vk(0x47, "G", logger)
 
 
+def press_5(logger: Logger = None) -> bool:
+    return _press_vk(0x35, "5", logger)
+
+
 def press_tab(logger: Logger = None) -> bool:
     return _press_vk(0x09, "Tab", logger)
 
@@ -62,6 +66,10 @@ def press_down(logger: Logger = None) -> bool:
 
 def press_enter(logger: Logger = None) -> bool:
     return _press_vk(win32con.VK_RETURN, "Enter", logger, hold_seconds=0.03)
+
+
+def press_esc(logger: Logger = None) -> bool:
+    return _press_vk(win32con.VK_ESCAPE, "Escape", logger)
 
 
 def press_alt_tab(logger: Logger = None) -> bool:

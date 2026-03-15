@@ -2,6 +2,34 @@
 setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
+set "REQ_FILE=%CD%\requirements.txt"
+set "DEPS_MARKER=%CD%\.deps_installed"
+
+set "PY_CMD="
+where py >nul 2>&1 && set "PY_CMD=py -3"
+if not defined PY_CMD (
+    where python >nul 2>&1 && set "PY_CMD=python"
+)
+
+if not defined PY_CMD (
+    echo Python not found in PATH.
+    echo Install Python or add it to PATH.
+    pause
+    goto end
+)
+
+if exist "%REQ_FILE%" if not exist "%DEPS_MARKER%" (
+    echo Installing Python dependencies from requirements.txt...
+    call !PY_CMD! -m pip install -r "%REQ_FILE%"
+    if errorlevel 1 (
+        echo.
+        echo Failed to install dependencies.
+        pause
+        goto end
+    )
+    >"%DEPS_MARKER%" echo Installed on %DATE% %TIME%
+)
+
 :menu
 cls
 echo === FiveM Bot Launcher (.bat) ===
@@ -49,19 +77,6 @@ set "target=!script[%idx%]!"
 echo.
 echo Running: !target!
 echo.
-
-set "PY_CMD="
-where py >nul 2>&1 && set "PY_CMD=py -3"
-if not defined PY_CMD (
-    where python >nul 2>&1 && set "PY_CMD=python"
-)
-
-if not defined PY_CMD (
-    echo Python not found in PATH.
-    echo Install Python or add it to PATH.
-    pause
-    goto menu
-)
 
 call !PY_CMD! "!target!"
 echo.
