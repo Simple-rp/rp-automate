@@ -44,12 +44,20 @@ def press_x(logger: Logger = None) -> bool:
     return _press_vk(0x58, "X", logger)
 
 
+def press_c(logger: Logger = None, *, hold_seconds: float = 0.02) -> bool:
+    return _press_vk(0x43, "C", logger, hold_seconds=hold_seconds)
+
+
 def press_g(logger: Logger = None) -> bool:
     return _press_vk(0x47, "G", logger)
 
 
 def press_5(logger: Logger = None) -> bool:
     return _press_vk(0x35, "5", logger)
+
+
+def press_4(logger: Logger = None) -> bool:
+    return _press_vk(0x34, "4", logger)
 
 
 def press_tab(logger: Logger = None) -> bool:

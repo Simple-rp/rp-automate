@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-import audioop
+from array import array
+import sys
+try:
+    import audioop
+except ImportError:  # pragma: no cover - missing in Python 3.13+
+    audioop = None
 import hashlib
 import os
 import random
@@ -78,6 +83,68 @@ def _sound_volume() -> float:
     return max(0.0, min(1.0, volume))
 
 
+def _scale_pcm(frames: bytes, sample_width: int, volume: float) -> bytes:
+    if volume >= 0.99:
+        return frames
+    if sample_width == 1:
+        # Unsigned 8-bit PCM centered at 128.
+        out = bytearray(len(frames))
+        for i, b in enumerate(frames):
+            sample = b - 128
+            scaled = int(round(sample * volume))
+            if scaled > 127:
+                scaled = 127
+            elif scaled < -128:
+                scaled = -128
+            out[i] = (scaled + 128) & 0xFF
+        return bytes(out)
+    if sample_width == 2:
+        arr = array("h")
+        arr.frombytes(frames)
+        if sys.byteorder != "little":
+            arr.byteswap()
+        for i, sample in enumerate(arr):
+            scaled = int(round(sample * volume))
+            if scaled > 32767:
+                scaled = 32767
+            elif scaled < -32768:
+                scaled = -32768
+            arr[i] = scaled
+        if sys.byteorder != "little":
+            arr.byteswap()
+        return arr.tobytes()
+    if sample_width == 3:
+        out = bytearray(len(frames))
+        for i in range(0, len(frames), 3):
+            chunk = frames[i : i + 3]
+            if len(chunk) < 3:
+                break
+            sample = int.from_bytes(chunk, "little", signed=True)
+            scaled = int(round(sample * volume))
+            if scaled > 8388607:
+                scaled = 8388607
+            elif scaled < -8388608:
+                scaled = -8388608
+            out[i : i + 3] = int(scaled).to_bytes(3, "little", signed=True)
+        return bytes(out)
+    if sample_width == 4:
+        arr = array("i")
+        arr.frombytes(frames)
+        if sys.byteorder != "little":
+            arr.byteswap()
+        for i, sample in enumerate(arr):
+            scaled = int(round(sample * volume))
+            if scaled > 2147483647:
+                scaled = 2147483647
+            elif scaled < -2147483648:
+                scaled = -2147483648
+            arr[i] = scaled
+        if sys.byteorder != "little":
+            arr.byteswap()
+        return arr.tobytes()
+    return frames
+
+
 def _prepare_sound_file(sound_path: str, volume: float) -> str | None:
     if volume >= 0.99:
         return sound_path
@@ -103,7 +170,10 @@ def _prepare_sound_file(sound_path: str, volume: float) -> str | None:
                     frames = reader.readframes(4096)
                     if not frames:
                         break
-                    scaled = audioop.mul(frames, sample_width, volume)
+                    if audioop is not None:
+                        scaled = audioop.mul(frames, sample_width, volume)
+                    else:
+                        scaled = _scale_pcm(frames, sample_width, volume)
                     writer.writeframes(scaled)
         return str(output_path)
     except Exception:
