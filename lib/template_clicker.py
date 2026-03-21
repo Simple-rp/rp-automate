@@ -80,6 +80,7 @@ class TemplateClicker:
         *,
         log_not_found: bool = True,
         button: str = "left",
+        **_ignored: object,
     ) -> bool:
         """Locate template in configured capture zone and click it."""
         target = self.find_match(hwnd, logger)
@@ -89,7 +90,7 @@ class TemplateClicker:
             return False
         self._move_mouse_and_click(target, button=button)
         action = "Right-clicked" if button == "right" else "Clicked"
-        _log(logger, f"{action} item at {target}.")
+        _log(logger, f"{action} item using template '{self.template_path.name}'.")
         return True
 
     def _capture_window_image(self, hwnd: int) -> Tuple[np.ndarray, Tuple[int, int]]:

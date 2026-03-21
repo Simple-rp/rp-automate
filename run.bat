@@ -18,8 +18,37 @@ if not defined PY_CMD (
     goto end
 )
 
-if exist "%REQ_FILE%" if not exist "%DEPS_MARKER%" (
-    echo Installing Python dependencies from requirements.txt...
+set "NEED_INSTALL=0"
+set "INSTALL_REASON="
+set "CURRENT_REQ_HASH="
+set "INSTALLED_REQ_HASH="
+
+if exist "%REQ_FILE%" (
+    for /f "usebackq delims=" %%H in (`!PY_CMD! -c "import hashlib, pathlib, os; p=pathlib.Path(os.environ['REQ_FILE']); print(hashlib.sha256(p.read_bytes()).hexdigest())" 2^>nul`) do (
+        set "CURRENT_REQ_HASH=%%H"
+    )
+
+    if not defined CURRENT_REQ_HASH (
+        set "NEED_INSTALL=1"
+        set "INSTALL_REASON=could not read requirements hash"
+    ) else (
+        if not exist "%DEPS_MARKER%" (
+            set "NEED_INSTALL=1"
+            set "INSTALL_REASON=first launch"
+        ) else (
+            for /f "tokens=2 delims==" %%H in ('findstr /b /c:"sha256=" "%DEPS_MARKER%" 2^>nul') do (
+                set "INSTALLED_REQ_HASH=%%H"
+            )
+            if /i not "!CURRENT_REQ_HASH!"=="!INSTALLED_REQ_HASH!" (
+                set "NEED_INSTALL=1"
+                set "INSTALL_REASON=requirements changed"
+            )
+        )
+    )
+)
+
+if "%NEED_INSTALL%"=="1" (
+    echo Installing Python dependencies from requirements.txt ^(!INSTALL_REASON!^)...
     call !PY_CMD! -m pip install -r "%REQ_FILE%"
     if errorlevel 1 (
         echo.
@@ -27,7 +56,10 @@ if exist "%REQ_FILE%" if not exist "%DEPS_MARKER%" (
         pause
         goto end
     )
-    >"%DEPS_MARKER%" echo Installed on %DATE% %TIME%
+    (
+        echo sha256=!CURRENT_REQ_HASH!
+        echo installed_on=%DATE% %TIME%
+    ) > "%DEPS_MARKER%"
 )
 
 :menu

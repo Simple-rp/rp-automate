@@ -32,6 +32,10 @@ class ActionSettings:
     x_delay_seconds: float = 0.2
     open_trunk_delay_seconds: float = 0.5
     pre_find_delay_seconds: float = 0.75
+    find_timeout_seconds: float = 2.0
+    find_poll_seconds: float = 0.2
+    per_template_timeout_seconds: float = 0.0
+    per_template_poll_seconds: float = 0.05
     post_find_delay_seconds: float = 0.75
     post_tab_delay_seconds: float = 0.5
     post_e_delay_seconds: float = 0.4
@@ -61,7 +65,23 @@ def run_inventory_cycle(
     press_tab(logger)
     time.sleep(settings.pre_find_delay_seconds)
 
-    item_found = clicker.find_and_click(window.handle, logger)
+    deadline = time.time() + max(0.0, settings.find_timeout_seconds)
+    item_found = False
+    while True:
+        item_found = clicker.find_and_click(
+            window.handle,
+            logger,
+            log_not_found=False,
+            per_template_timeout_seconds=settings.per_template_timeout_seconds,
+            per_template_poll_seconds=settings.per_template_poll_seconds,
+        )
+        if item_found:
+            break
+        if time.time() >= deadline:
+            if logger is not None:
+                logger(f"Item not found on screen after {settings.find_timeout_seconds:.1f}s.")
+            break
+        time.sleep(max(0.01, settings.find_poll_seconds))
 
     time.sleep(settings.post_find_delay_seconds)
     press_tab(logger)

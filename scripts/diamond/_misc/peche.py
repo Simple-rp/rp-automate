@@ -31,7 +31,7 @@ os.environ["FIVEM_BOT_ITERATION_SOUND"] = "0"
 EMPTY_SPAM_HOLD_SECONDS = float(os.getenv("FIVEM_PECHE_EMPTY_HOLD_SECONDS", "1.1"))
 EMPTY_SPAM_RELEASE_SECONDS = float(os.getenv("FIVEM_PECHE_EMPTY_RELEASE_SECONDS", "1.4"))
 
-INVENTORY_EVERY = int(os.getenv("FIVEM_PECHE_INVENTORY_EVERY", "15"))
+INVENTORY_EVERY = int(os.getenv("FIVEM_PECHE_INVENTORY_EVERY", "10"))
 
 
 WINDOW_TITLE_PATTERN = r".*FiveM.*"
@@ -40,11 +40,19 @@ FAIL_INTERVAL_SECONDS = int(os.getenv("FIVEM_PECHE_FAIL_INTERVAL", "1"))
 KEY_DELAY_SECONDS = float(os.getenv("FIVEM_PECHE_KEY_DELAY", "0.5"))
 DELAY_BETWEEN_5_AND_4 = float(os.getenv("FIVEM_PECHE_DELAY_5_4", "1.0"))
 C_HOLD_SECONDS = float(os.getenv("FIVEM_PECHE_C_HOLD", "0.1"))
-POST_4_DELAY_SECONDS = float(os.getenv("FIVEM_PECHE_POST_4_DELAY", "1.0"))
+POST_4_DELAY_SECONDS = float(os.getenv("FIVEM_PECHE_POST_4_DEL(AY", "1.0"))
 POST_STOPPER_DELAY_SECONDS = float(os.getenv("FIVEM_PECHE_POST_STOPPER_DELAY", "1.0"))
 
 INVENTORY_OPEN_DELAY_SECONDS = float(os.getenv("FIVEM_PECHE_INVENTORY_OPEN_DELAY", "1.0"))
 INVENTORY_CLOSE_DELAY_SECONDS = float(os.getenv("FIVEM_PECHE_INVENTORY_CLOSE_DELAY", "0.2"))
+INVENTORY_PRE_SEQUENCE_DELAY_SECONDS = float(os.getenv("FIVEM_PECHE_INVENTORY_PRE_SEQUENCE_DELAY", "1.0"))
+INVENTORY_OPEN_MAX_TABS = int(os.getenv("FIVEM_PECHE_INVENTORY_OPEN_MAX_TABS", "2"))
+INVENTORY_OPEN_CONFIRM_TIMEOUT_SECONDS = float(
+    os.getenv("FIVEM_PECHE_INVENTORY_OPEN_CONFIRM_TIMEOUT", "2.0")
+)
+INVENTORY_OPEN_CONFIRM_POLL_SECONDS = float(
+    os.getenv("FIVEM_PECHE_INVENTORY_OPEN_CONFIRM_POLL", "0.2")
+)
 INVENTORY_CHECK_OPEN_TEMPLATE_PATH = os.getenv(
     "FIVEM_PECHE_INVENTORY_CHECK_OPEN_TEMPLATE",
     str(ROOT_DIR / "assets/fishing/check-inventory-open.PNG"),
@@ -76,9 +84,14 @@ POISSON_MOVE_AFTER_CLICK_DELAY_SECONDS = float(
 )
 APPAT_TEMPLATE_PATH = os.getenv(
     "FIVEM_PECHE_APPAT_TEMPLATE",
-    str(ROOT_DIR / "assets/items/appat.PNG"),
+    str(ROOT_DIR / "assets/items/appat.png"),
 ).strip()
 APPAT_THRESHOLD = float(os.getenv("FIVEM_PECHE_APPAT_THRESHOLD", "0.75"))
+APPAT_LIGHT_TEMPLATE_PATH = os.getenv(
+    "FIVEM_PECHE_APPAT_LIGHT_TEMPLATE",
+    str(ROOT_DIR / "assets/items/appat-light.PNG"),
+).strip()
+APPAT_LIGHT_THRESHOLD = float(os.getenv("FIVEM_PECHE_APPAT_LIGHT_THRESHOLD", "0.75"))
 APPAT_FIND_TIMEOUT_SECONDS = float(os.getenv("FIVEM_PECHE_APPAT_FIND_TIMEOUT", "2.0"))
 APPAT_FIND_POLL_SECONDS = float(os.getenv("FIVEM_PECHE_APPAT_FIND_POLL", "0.2"))
 INVENTORY_INTERACTION_DELAY_SECONDS = float(
@@ -157,6 +170,12 @@ _POISSON_LIGHT_CLICKER = TemplateClicker(
 _APPAT_CLICKER = TemplateClicker(
     Path(APPAT_TEMPLATE_PATH),
     match_threshold=APPAT_THRESHOLD,
+    capture_side="right",
+    ctrl_click=True,
+)
+_APPAT_LIGHT_CLICKER = TemplateClicker(
+    Path(APPAT_LIGHT_TEMPLATE_PATH),
+    match_threshold=APPAT_LIGHT_THRESHOLD,
     capture_side="right",
     ctrl_click=True,
 )
@@ -352,12 +371,47 @@ def _click_poisson_match(clicker: TemplateClicker, pos: tuple[int, int], logger:
         _log(logger, f"Poisson ctrl-clicked {repeat}x at {pos}.")
 
 
+def _ensure_inventory_open(window: object, logger: Logger) -> bool:
+    max_attempts = max(1, INVENTORY_OPEN_MAX_TABS)
+    if not _INVENTORY_OPEN_CLICKER.is_loaded:
+        _log(logger, f"Inventory-open template not loaded: {INVENTORY_CHECK_OPEN_TEMPLATE_PATH}")
+        if press_tab(logger):
+            time.sleep(INVENTORY_OPEN_DELAY_SECONDS)
+            time.sleep(max(0.0, INVENTORY_INTERACTION_DELAY_SECONDS))
+            return True
+        _log(logger, "Failed to send Tab while opening inventory.")
+        return False
+
+    for attempt in range(1, max_attempts + 1):
+        if not press_tab(logger):
+            _log(logger, f"Failed to send Tab on inventory open attempt {attempt}/{max_attempts}.")
+            return False
+
+        time.sleep(INVENTORY_OPEN_DELAY_SECONDS)
+        pos = _find_with_timeout(
+            _INVENTORY_OPEN_CLICKER,
+            window,
+            timeout_seconds=INVENTORY_OPEN_CONFIRM_TIMEOUT_SECONDS,
+            poll_seconds=INVENTORY_OPEN_CONFIRM_POLL_SECONDS,
+            logger=logger,
+        )
+        if pos is not None:
+            _log(logger, f"Inventory confirmed open at {pos} (attempt {attempt}/{max_attempts}).")
+            time.sleep(max(0.0, INVENTORY_INTERACTION_DELAY_SECONDS))
+            return True
+        _log(
+            logger,
+            f"Inventory not detected open after Tab attempt {attempt}/{max_attempts}.",
+        )
+
+    _log(logger, "Inventory could not be opened after retries.")
+    return False
+
+
 def _run_inventory_sequence(window: object, logger: Logger) -> None:
-    if not press_tab(logger):
+    if not _ensure_inventory_open(window, logger):
         _log(logger, "Failed to open inventory.")
         return
-    time.sleep(INVENTORY_OPEN_DELAY_SECONDS)
-    time.sleep(max(0.0, INVENTORY_INTERACTION_DELAY_SECONDS))
 
     if not _POISSON_CLICKER.is_loaded and not _POISSON_LIGHT_CLICKER.is_loaded:
         _log(
@@ -410,20 +464,44 @@ def _run_inventory_sequence(window: object, logger: Logger) -> None:
         if clicks >= POISSON_MAX_CLICKS:
             _log(logger, f"Poisson click limit reached ({POISSON_MAX_CLICKS}).")
 
-    if not _APPAT_CLICKER.is_loaded:
-        _log(logger, f"Appat template not loaded: {APPAT_TEMPLATE_PATH}")
-    else:
-        pos = _find_with_timeout(
-            _APPAT_CLICKER,
-            window,
-            timeout_seconds=APPAT_FIND_TIMEOUT_SECONDS,
-            poll_seconds=APPAT_FIND_POLL_SECONDS,
-            logger=logger,
+    if not _APPAT_CLICKER.is_loaded and not _APPAT_LIGHT_CLICKER.is_loaded:
+        _log(
+            logger,
+            (
+                "Appat templates not loaded: "
+                f"{APPAT_TEMPLATE_PATH} / {APPAT_LIGHT_TEMPLATE_PATH}"
+            ),
         )
+    else:
+        pos = None
+        appat_clicker = None
+        if _APPAT_CLICKER.is_loaded:
+            pos = _find_with_timeout(
+                _APPAT_CLICKER,
+                window,
+                timeout_seconds=APPAT_FIND_TIMEOUT_SECONDS,
+                poll_seconds=APPAT_FIND_POLL_SECONDS,
+                logger=logger,
+            )
+            if pos is not None:
+                appat_clicker = _APPAT_CLICKER
+
+        if pos is None and _APPAT_LIGHT_CLICKER.is_loaded:
+            pos = _find_with_timeout(
+                _APPAT_LIGHT_CLICKER,
+                window,
+                timeout_seconds=APPAT_FIND_TIMEOUT_SECONDS,
+                poll_seconds=APPAT_FIND_POLL_SECONDS,
+                logger=logger,
+            )
+            if pos is not None:
+                appat_clicker = _APPAT_LIGHT_CLICKER
+                _log(logger, f"Appat fallback matched (light) at {pos}.")
+
         if pos is None:
             _log(logger, f"Appat not found on right side after {APPAT_FIND_TIMEOUT_SECONDS:.1f}s.")
-        else:
-            _APPAT_CLICKER.click(pos, button="left")
+        elif appat_clicker is not None:
+            appat_clicker.click(pos, button="left")
             _log(logger, f"Ctrl-clicked appat at {pos}.")
             time.sleep(max(0.0, INVENTORY_INTERACTION_DELAY_SECONDS))
 
@@ -488,6 +566,9 @@ def _peche_action(window: object, logger: Logger) -> bool:
     if sequence_finished:
         _SEQUENCE_COUNT += 1
         if INVENTORY_EVERY > 0 and _SEQUENCE_COUNT % INVENTORY_EVERY == 0:
+            delay_before_inventory = max(0.0, INVENTORY_PRE_SEQUENCE_DELAY_SECONDS)
+            if delay_before_inventory > 0:
+                time.sleep(delay_before_inventory)
             _log(logger, f"Running inventory sequence (every {INVENTORY_EVERY}).")
             _run_inventory_sequence(window, logger)
     return True
