@@ -52,6 +52,10 @@ def press_g(logger: Logger = None) -> bool:
     return _press_vk(0x47, "G", logger)
 
 
+def press_f(logger: Logger = None) -> bool:
+    return _press_vk(0x46, "F", logger)
+
+
 def press_5(logger: Logger = None) -> bool:
     return _press_vk(0x35, "5", logger)
 
