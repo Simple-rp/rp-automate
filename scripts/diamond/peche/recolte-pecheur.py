@@ -47,6 +47,8 @@ STUCK_ALERT_SOUND = os.getenv(
 ).strip()
 STUCK_ALERT_FREQ = int(os.getenv("FIVEM_SAUMON_STUCK_ALERT_FREQ", "880"))
 STUCK_ALERT_BEEP_MS = int(os.getenv("FIVEM_SAUMON_STUCK_ALERT_BEEP_MS", "500"))
+STUCK_ALERT_REPEAT = int(os.getenv("FIVEM_SAUMON_STUCK_ALERT_REPEAT", "4"))
+STUCK_ALERT_REPEAT_DELAY_SECONDS = float(os.getenv("FIVEM_SAUMON_STUCK_ALERT_REPEAT_DELAY", "0.12"))
 INVENTORY_CLOSE_DELAY_SECONDS = float(os.getenv("FIVEM_SAUMON_INVENTORY_CLOSE_DELAY", "0.5"))
 POST_E_DELAY_SECONDS = float(os.getenv("FIVEM_SAUMON_POST_E_DELAY", "0.4"))
 
@@ -64,10 +66,15 @@ def _play_alert(logger: Logger) -> None:
         return
 
     try:
-        if STUCK_ALERT_SOUND and Path(STUCK_ALERT_SOUND).exists():
-            winsound.PlaySound(STUCK_ALERT_SOUND, winsound.SND_FILENAME)
-            return
-        winsound.Beep(STUCK_ALERT_FREQ, STUCK_ALERT_BEEP_MS)
+        repeat = max(1, STUCK_ALERT_REPEAT)
+        for index in range(repeat):
+            if STUCK_ALERT_SOUND and Path(STUCK_ALERT_SOUND).exists():
+                winsound.PlaySound(STUCK_ALERT_SOUND, winsound.SND_FILENAME)
+            else:
+                winsound.Beep(STUCK_ALERT_FREQ, STUCK_ALERT_BEEP_MS)
+
+            if index < repeat - 1:
+                time.sleep(max(0.0, STUCK_ALERT_REPEAT_DELAY_SECONDS))
     except Exception as exc:
         _log(logger, f"Alert sound failed: {exc!r}")
 
